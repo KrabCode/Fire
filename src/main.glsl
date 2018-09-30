@@ -27,7 +27,7 @@ uniform float [10] platformSizesX;
 uniform float [10] platformSizesY;
 uniform float [10] platformLastHits;
 
-uniform float smoothstepOffset = 0.005;
+uniform float smoothstepOffset = 0.01;
 
 
 vec3 hsb2rgb( in vec3 c){
@@ -63,8 +63,10 @@ void main(){
         vec2 blockPos = vec2(blockPositionsX[i] / size.x, 1.-blockPositionsY[i] / size.y);
         vec2 blockSize = vec2(blockSizesX[i] / size.x/2., blockSizesY[i] / size.y/2.);
         vec3 rect = rect(uv, blockPos, blockSize, vec2(smoothstepOffset));
+        float healthIndicator = map(blockMaxHealths[i]-blockHealths[i], 0., blockMaxHealths[i], 0.,.8);
         float hitAnimationFrame = (time-blockLastHits[i])/30.;
-        hsb.b += rect.r *(.5+(clamp(hitAnimationFrame, 0., 1.5)));
+        hsb.r += rect.r * (.1-healthIndicator/2.);
+        hsb.b += rect.r * (.5+(clamp(hitAnimationFrame, 0., 1.5)));
     }
     for(int i = 0; i < 30; i++){
         vec2 ballPos = vec2(ballPositionsX[i]/size.x, 1.-ballPositionsY[i]/size.y);

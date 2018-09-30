@@ -105,6 +105,9 @@ public class MainApp extends PApplet{
      * */
 
     public void draw() {
+        if(blocks.size()==0){
+            generateBlocks();
+        }
         for(Ball ball : balls){
             ball.update();
         }
@@ -223,31 +226,38 @@ public class MainApp extends PApplet{
     class Platform{
         PVector pos;
         PVector size;
-        float spd;
+        int stepsPerFrame;
+        float dirNormalized;
         float lastHitFrame;
         ArrayList<Ball> snappedToThis = new ArrayList<>();
         Platform(){
             pos = new PVector(m.size/2f, height-m.size/16f);
             size = new PVector(m.size/10f, m.size/60f);
-            spd = 10;
+            stepsPerFrame = 5;
             lastHitFrame = -5;
         }
 
         void update(){
-            if(keyPressed){
-                if(key == 'a'){
-                    pos.x-= spd;
-                }
-                if(key == 'd'){
-                    pos.x+= spd;
-                }
-                if(key == ' '){
-                    if(snappedToThis.size() > 0){
-                        Ball b = snappedToThis.get(0);
-                        b.release();
-                        snappedToThis.remove(b);
+            if(keyPressed || mousePressed){
+            for(int i = 0; i < stepsPerFrame; i++){
+                dirNormalized = 0;
+                    if(key == 'a' || (mousePressed && mouseX < m.center.x)){
+                        dirNormalized = -1;
                     }
+                    if(key == 'd' || (mousePressed && mouseX > m.center.x)){
+                        dirNormalized = 1;
+                    }
+                    if(key == ' '){
+                        if(snappedToThis.size() > 0){
+                            Ball b = snappedToThis.get(0);
+                            b.release();
+                            snappedToThis.remove(b);
+                        }
+                    }
+                    pos.x += dirNormalized;
                 }
+            }else{
+                dirNormalized = 0;
             }
             checkBoundsCollision();
         }
@@ -274,7 +284,8 @@ public class MainApp extends PApplet{
 
     class Ball {
         PVector pos;
-        PVector spd;
+        PVector dirNormalized;
+        PVector maxSpd;
         int stepsPerFrame;
         float size;
         Platform snappedTo;
@@ -283,7 +294,7 @@ public class MainApp extends PApplet{
             stepsPerFrame = 5;
             size = m.size*.02f;
             pos = new PVector(m.center.x,height/8);
-            spd = new PVector(1.f-random(2f), 1);
+            float maxSpd = 1.f-random(2f);
         }
 
         Ball(Platform snapToThis){
@@ -291,13 +302,13 @@ public class MainApp extends PApplet{
             if(snapToThis!=null){
                 snappedTo = snapToThis;
                 snapToThis.snappedToThis.add(this); //remember this ball on the platform for release purposes
-                spd = new PVector();
+                dirNormalized = new PVector();
             }
         }
 
         void release(){
             snappedTo = null;
-            spd = new PVector(random(-1.f, 1.f), 1.f);
+            dirNormalized = PVector.fromAngle(random(0f,PI));
         }
 
         void update(){
@@ -309,7 +320,7 @@ public class MainApp extends PApplet{
                 checkBoundsCollision();
                 checkBlocksCollision();
                 checkPlatformCollision();
-                pos.add(spd);
+                pos.add(dirNormalized);
             }
         }
 
@@ -319,45 +330,48 @@ public class MainApp extends PApplet{
                         p.pos.x-p.size.x/2, p.pos.y-p.size.y/2, p.size.x, p.size.y);
                 if(colResult == Collision.LEFT){
                     p.onHit();
-                    if(spd.x > 0){
-                        spd.x *= -1;
+                    if(dirNormalized.x > 0){
+                        dirNormalized.x *= -1;
                     }
-                    spd.x *= -1;
+                    dirNormalized.x *= -1;
                 }else if(colResult == Collision.RIGHT){
                     p.onHit();
-                    if(spd.x < 0){
-                        spd.x *= -1;
+                    if(dirNormalized.x < 0){
+                        dirNormalized.x *= -1;
                     }
                 }else if(colResult == Collision.TOP){
                     p.onHit();
-                    if(spd.y > 0){
-                        spd.y *= -1;
+                    if(dirNormalized.y > 0){
+                        dirNormalized.y *= -1;
+                        dirNormalized.x += p.dirNormalized/4f;
+
                     }
                 }else if(colResult == Collision.BOT){
                     p.onHit();
-                    if(spd.y < 0){
-                        spd.y *= -1;
+                    if(dirNormalized.y < 0){
+                       // stepsPerFrame.y *= -1; go straight through instead
                     }
                 }
+                dirNormalized.limit(1.f);
             }
         }
 
         private void checkBoundsCollision() {
             if(pos.x > m.center.x +m.size/2-size/2){
                 pos.x = m.center.x +m.size/2-size/2;
-                spd.x *= -1;
+                dirNormalized.x *= -1;
             }
             if(pos.x < m.center.x -m.size/2+size/2){
                 pos.x = m.center.x -m.size/2+size/2;
-                spd.x *= -1;
+                dirNormalized.x *= -1;
             }
             if(pos.y > m.center.y+m.size/2-size/2){
                 pos.y = m.center.y+m.size/2-size/2;
-                spd.y *= -1;
+                dirNormalized.y *= -1;
             }
             if(pos.y < m.center.y-m.size/2+size/2){
                 pos.y = m.center.y-m.size/2+size/2;
-                spd.y *= -1;
+                dirNormalized.y *= -1;
                 println("death @ " + frameCount);
             }
         }
@@ -369,10 +383,10 @@ public class MainApp extends PApplet{
                             b.pos.x-b.size.x/2, b.pos.y-b.size.y/2, b.size.x, b.size.y);
                     if(colResult == Collision.BOT || colResult == Collision.TOP){
                         b.onHit();
-                        spd.y*= -1;
+                        dirNormalized.y*= -1;
                     }else if(colResult == Collision.LEFT || colResult == Collision.RIGHT){
                         b.onHit();
-                        spd.x*= -1;
+                        dirNormalized.x*= -1;
                     }
                 }
             }
@@ -448,7 +462,16 @@ public class MainApp extends PApplet{
         }
 
         public void update() {
+            float elapsed = frameCount - lastHitFrame;
 
         }
+    }
+
+    PVector getPointAtAngle(float cx, float cy, float radius, float angle) {
+        return new PVector(cx + radius * cos(angle), cy + radius * sin(angle));
+    }
+
+    float getAngle(float x0,float  y0,float  x1,float  y1) {
+        return atan2(y1 - y0, x1 - x0);
     }
 }
