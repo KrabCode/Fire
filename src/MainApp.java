@@ -4,16 +4,11 @@ import processing.opengl.PShader;
 
 import java.util.ArrayList;
 
+enum Collision {TOP, BOT, LEFT, RIGHT, NONE};
 
 public class MainApp extends PApplet{
 
-    ArrayList<Ball> balls = new ArrayList<>();
-    ArrayList<Block> ballsToRemove = new ArrayList<>();
     Map m;
-
-    ArrayList<Block> blocks = new ArrayList<>();
-    ArrayList<Block> blocksToRemove = new ArrayList<>();
-
     PShader mainShader;
 
     float[] blockPositionsX;
@@ -21,10 +16,24 @@ public class MainApp extends PApplet{
     float[] blockPositionsY;
     float[] blockSizesY;
     float[] blockDeathframes;
+    float[] blockHealths;
+    float[] blockMaxHealths;
+    float[] blockLastHits;
     float[] ballPositionsXs;
     float[] ballPositionsYs;
     float[] ballRs;
+    float[] platformPositionsX;
+    float[] platformPositionsY;
+    float[] platformSizesX;
+    float[] platformSizesY;
+    float[] platformLastHits;
 
+    ArrayList<Ball> balls = new ArrayList<>();
+    ArrayList<Ball> ballsToRemove = new ArrayList<>();
+    ArrayList<Block> blocks = new ArrayList<>();
+    ArrayList<Block> blocksToRemove = new ArrayList<>();
+    ArrayList<Platform> platforms = new ArrayList<>();
+    ArrayList<Platform> platformsToRemove = new ArrayList<>();
 
     public static void main(String[] args) {
         PApplet.main("MainApp");
@@ -32,55 +41,93 @@ public class MainApp extends PApplet{
 
     public void settings() {
 //        fullScreen(P2D);
-        size(800, 800, P2D);
+        size(1000, 1000, P2D);
     }
+
+    /*
+     *
+     *       SETUP
+     *
+     * */
 
     public void setup() {
         colorMode(HSB, 1,1,1,1);
         ellipseMode(CENTER);
         rectMode(CENTER);
         mainShader = loadShader("main.glsl");
-        m = new Map(min(width, height));
+        float size = min(width, height);
+        m = new Map(size);
+        generatePlatforms();
         generateBall();
         generateBlocks();
     }
 
+    private void generatePlatforms() {
+        platforms.add(new Platform());
+        platformPositionsX = new float[platforms.size()];
+        platformPositionsY = new float[platforms.size()];
+        platformSizesY = new float[platforms.size()];
+        platformSizesX = new float[platforms.size()];
+        platformLastHits = new float[platforms.size()];
+    }
+
     private void generateBall() {
-        balls.add(new Ball());
+        balls.add(new Ball(platforms.get(0)));
         ballPositionsXs = new float[balls.size()];
         ballPositionsYs = new float[balls.size()];
         ballRs = new float[balls.size()];
     }
 
-    void generateBlocks(){
-
+    private void generateBlocks(){
         float xscl = 15f;
         float yscl = 15f;
         for(float x = 1f; x <= xscl-1; x++){
-            for(float y = 1f; y <= yscl*.5; y++){
+            for(float y = 1; y <= yscl*.5; y++){
                 PVector pos = new PVector(m.topleft.x + x*m.size/xscl, m.topleft.y + y*m.size/yscl);
                 PVector size = new PVector(m.size/xscl*.7f, m.size/yscl*.7f);
-                blocks.add(new Block(pos, size));
+                blocks.add(new Block(pos, size, 2));
             }
         }
         blockPositionsX =   new float[blocks.size()];
-        blockSizesX =       new float[blocks.size()];
+        blockSizesX     =   new float[blocks.size()];
         blockPositionsY =   new float[blocks.size()];
-        blockSizesY =       new float[blocks.size()];
+        blockSizesY      =  new float[blocks.size()];
         blockDeathframes =  new float[blocks.size()];
+        blockHealths     =  new float[blocks.size()];
+        blockMaxHealths =  new float[blocks.size()];
+        blockLastHits =  new float[blocks.size()];
     }
 
+    /*
+     *
+     *       DRAW
+     *
+     * */
+
     public void draw() {
-        noCursor();
-        background(0);
         for(Ball ball : balls){
             ball.update();
         }
+        for(Platform p : platforms){
+            p.update();
+        }
+        for(Block b : blocks){
+            b.update();
+        }
         sendBallsToShader();
         sendBlocksToShader();
+        sendPlatformsToShader();
         m.drawBackground();
+        resetShader();
+        /*
+        for(Block b : blocks){
+            if(b.deathFrame!=0)continue;
+            rect(b.pos.x, b.pos.y, b.size.x,b.size.y);
+        }
+        rect(m.topleft.x, m.topleft.y, 20,20);
+        ellipse(balls.get(0).pos.x,balls.get(0).pos.y, balls.get(0).size, balls.get(0).size);
+        */
     }
-
 
     private void sendBlocksToShader() {
         blocks.removeAll(blocksToRemove);
@@ -92,12 +139,18 @@ public class MainApp extends PApplet{
             blockSizesX[i] = b.size.x;
             blockSizesY[i] = b.size.y;
             blockDeathframes[i] = b.deathFrame;
+            blockHealths[i] = b.health;
+            blockMaxHealths[i] = b.maxHealth;
+            blockLastHits[i] = b.lastHitFrame;
         }
         mainShader.set("blockPositionsX", blockPositionsX);
         mainShader.set("blockSizesX", blockSizesX);
         mainShader.set("blockPositionsY", blockPositionsY);
         mainShader.set("blockSizesY", blockSizesY);
         mainShader.set("blockDeathframes", blockDeathframes);
+        mainShader.set("blockHealths", blockHealths);
+        mainShader.set("blockMaxHealths", blockMaxHealths);
+        mainShader.set("blockLastHits", blockLastHits);
     }
 
     private void sendBallsToShader() {
@@ -107,72 +160,230 @@ public class MainApp extends PApplet{
             int i = balls.indexOf(b);
             ballPositionsXs[i] = b.pos.x;
             ballPositionsYs[i] = b.pos.y;
-            ballRs[i] = map(b.size, 0.f, m.size, 0.f, 1.f);
+            ballRs[i] = b.size;
         }
         mainShader.set("ballPositionsX", ballPositionsXs);
         mainShader.set("ballPositionsY", ballPositionsYs);
         mainShader.set("ballRs", ballRs);
     }
 
-    class Ball {
-        PVector pos;
-        PVector spd;
-        float size;
+    private void sendPlatformsToShader() {
+        platforms.removeAll(platformsToRemove);
+        platformsToRemove.clear();
+        for(Platform p : platforms){
+            int i = platforms.indexOf(p);
+            platformPositionsX[i] = p.pos.x;
+            platformPositionsY[i] = p.pos.y;
+            platformSizesX[i] = p.size.x;
+            platformSizesY[i] = p.size.y;
+            platformLastHits[i] = p.lastHitFrame;
+        }
+        mainShader.set("platformPositionsX", platformPositionsX);
+        mainShader.set("platformPositionsY", platformPositionsY);
+        mainShader.set("platformSizesX", platformSizesX);
+        mainShader.set("platformSizesY", platformSizesY);
+        mainShader.set("platformLastHits", platformLastHits);
 
-        Ball(){
-            size = m.size*.02f;
-            pos = new PVector(width/2, height/2);
-            spd = new PVector(random(-size/2f,size/2f), -size/2f);
+    }
+
+    /*
+     *
+     *       MAP
+     *
+     * */
+
+    class Map{
+        float size;
+        PVector topleft;
+        PVector center;
+
+        Map(float size){
+            this.size = size;
+            center = new PVector(width/2, height/2);
+            topleft = new PVector(center.x-size/2, center.y-size/2);
+        }
+
+        void drawBackground(){
+            mainShader.set("time", (float)frameCount);
+            mainShader.set("size", size, size);
+            mainShader.set("topleft", topleft.x, topleft.y);
+            shader(mainShader);
+            noStroke();
+            fill(1);
+            rect(topleft.x+size/2f, topleft.y+size/2f,size,size);
+        }
+    }
+
+    /*
+     *
+     *       PLATFORM
+     *
+     * */
+
+    class Platform{
+        PVector pos;
+        PVector size;
+        float spd;
+        float lastHitFrame;
+        ArrayList<Ball> snappedToThis = new ArrayList<>();
+        Platform(){
+            pos = new PVector(m.size/2f, height-m.size/16f);
+            size = new PVector(m.size/10f, m.size/60f);
+            spd = 10;
+            lastHitFrame = -5;
         }
 
         void update(){
-//            pos.x = mouseX;
-//            pos.y = height-mouseY;
-            checkBounds();
-            checkBlocks();
-            pos.add(spd);
+            if(keyPressed){
+                if(key == 'a'){
+                    pos.x-= spd;
+                }
+                if(key == 'd'){
+                    pos.x+= spd;
+                }
+                if(key == ' '){
+                    if(snappedToThis.size() > 0){
+                        Ball b = snappedToThis.get(0);
+                        b.release();
+                        snappedToThis.remove(b);
+                    }
+                }
+            }
+            checkBoundsCollision();
         }
 
-        private void checkBounds() {
-            if(pos.x > width/2 +m.size/2-size/2){
-                pos.x = width/2 +m.size/2-size/2;
-                spd.x *= -1;
+        public void onHit() {
+            lastHitFrame = frameCount;
+        }
+
+        private void checkBoundsCollision() {
+            if(pos.x > m.center.x +m.size/2-size.x/2){
+                pos.x = m.center.x +m.size/2-size.x/2;
             }
-            if(pos.x < width/2 -m.size/2+size/2){
-                pos.x = width/2 -m.size/2+size/2;
-                spd.x *= -1;
+            if(pos.x < m.center.x -m.size/2+size.x/2){
+                pos.x = m.center.x -m.size/2+size.x/2;
             }
-            if(pos.y > height/2+m.size/2-size/2){
-                pos.y = height/2+m.size/2-size/2;
-                spd.y *= -1;
-            }
-            if(pos.y < height/2-m.size/2+size/2){
-                pos.y = height/2-m.size/2+size/2;
-                spd.y *= -1;
-                println("death @ " + frameCount);
+        }
+    }
+
+    /*
+    *
+    *       BALL
+    *
+    * */
+
+    class Ball {
+        PVector pos;
+        PVector spd;
+        int stepsPerFrame;
+        float size;
+        Platform snappedTo;
+
+        Ball(){
+            stepsPerFrame = 5;
+            size = m.size*.02f;
+            pos = new PVector(m.center.x,height/8);
+            spd = new PVector(1.f-random(2f), 1);
+        }
+
+        Ball(Platform snapToThis){
+            this();
+            if(snapToThis!=null){
+                snappedTo = snapToThis;
+                snapToThis.snappedToThis.add(this); //remember this ball on the platform for release purposes
+                spd = new PVector();
             }
         }
 
-        private void checkBlocks() {
-            for(Block b : blocks){
-                if(b.deathFrame == 0){
-                    int colResult = circleRect(pos.x-size/2, height-pos.y-size/2, size,
-                            b.pos.x-b.size.x/2, b.pos.y-b.size.y/2, b.size.x, b.size.y);
-                    if(colResult > 0 && colResult <= 2){
-                        b.deathFrame = frameCount;
+        void release(){
+            snappedTo = null;
+            spd = new PVector(random(-1.f, 1.f), 1.f);
+        }
+
+        void update(){
+            if(snappedTo != null){
+                pos.x = snappedTo.pos.x;
+                pos.y = snappedTo.pos.y - snappedTo.size.y/2 - size/2;
+            }
+            for(int i = 0; i < stepsPerFrame; i++){
+                checkBoundsCollision();
+                checkBlocksCollision();
+                checkPlatformCollision();
+                pos.add(spd);
+            }
+        }
+
+        private void checkPlatformCollision() {
+            for(Platform p : platforms){
+                Collision colResult = getCircleRectCollision(pos.x, pos.y, size/2,
+                        p.pos.x-p.size.x/2, p.pos.y-p.size.y/2, p.size.x, p.size.y);
+                if(colResult == Collision.LEFT){
+                    p.onHit();
+                    if(spd.x > 0){
                         spd.x *= -1;
-                    }else if(colResult >2){
-                        b.deathFrame = frameCount;
-                        spd.y*= -1;
+                    }
+                    spd.x *= -1;
+                }else if(colResult == Collision.RIGHT){
+                    p.onHit();
+                    if(spd.x < 0){
+                        spd.x *= -1;
+                    }
+                }else if(colResult == Collision.TOP){
+                    p.onHit();
+                    if(spd.y > 0){
+                        spd.y *= -1;
+                    }
+                }else if(colResult == Collision.BOT){
+                    p.onHit();
+                    if(spd.y < 0){
+                        spd.y *= -1;
                     }
                 }
             }
         }
 
+        private void checkBoundsCollision() {
+            if(pos.x > m.center.x +m.size/2-size/2){
+                pos.x = m.center.x +m.size/2-size/2;
+                spd.x *= -1;
+            }
+            if(pos.x < m.center.x -m.size/2+size/2){
+                pos.x = m.center.x -m.size/2+size/2;
+                spd.x *= -1;
+            }
+            if(pos.y > m.center.y+m.size/2-size/2){
+                pos.y = m.center.y+m.size/2-size/2;
+                spd.y *= -1;
+            }
+            if(pos.y < m.center.y-m.size/2+size/2){
+                pos.y = m.center.y-m.size/2+size/2;
+                spd.y *= -1;
+                println("death @ " + frameCount);
+            }
+        }
 
-        int circleRect(float cx, float cy, float radius, float rx, float ry, float rw, float rh) {
+        private void checkBlocksCollision() {
+            for(Block b : blocks){
+                if(b.deathFrame == 0){
+                    Collision colResult = getCircleRectCollision(pos.x, pos.y, size,
+                            b.pos.x-b.size.x/2, b.pos.y-b.size.y/2, b.size.x, b.size.y);
+                    if(colResult == Collision.BOT || colResult == Collision.TOP){
+                        b.onHit();
+                        spd.y*= -1;
+                    }else if(colResult == Collision.LEFT || colResult == Collision.RIGHT){
+                        b.onHit();
+                        spd.x*= -1;
+                    }
+                }
+            }
+        }
 
-            int result = 0;
+        /**
+         * My everlasting thanks to Jeffrey Thompson
+         * http://www.jeffreythompson.org/collision-detection/circle-rect.php
+         */
+        Collision getCircleRectCollision(float cx, float cy, float radius, float rx, float ry, float rw, float rh) {
+            Collision result = Collision.NONE;
             // temporary variables to set edges for testing
             float testX = cx;
             float testY = cy;
@@ -180,19 +391,19 @@ public class MainApp extends PApplet{
             // which edge is closest?
             if (cx < rx){
                 testX = rx;      // test left edge
-                result = 1;
+                result = Collision.LEFT;
             }
             else if (cx > rx+rw){
                 testX = rx+rw;   // right edge
-                result = 2;
+                result = Collision.RIGHT;
             }
             if (cy < ry){
                 testY = ry;      // top edge
-                result = 3;
+                result = Collision.TOP;
             }
             else if (cy > ry+rh){
                 testY = ry+rh;   // bottom edge
-                result = 4;
+                result = Collision.BOT;
             }
 
             // get distance from closest edges
@@ -204,40 +415,40 @@ public class MainApp extends PApplet{
             if (distance <= radius) {
                 return result;
             }
-            return 0;
+            return Collision.NONE;
         }
     }
 
-    class Map{
-        float size;
-        PVector topleft;
-
-        Map(float size){
-            this.size = size;
-            topleft = new PVector(width/2-size/2, height/2-size/2);
-        }
-
-        void drawBackground(){
-            mainShader.set("time", radians(frameCount));
-            mainShader.set("size", size, size);
-            mainShader.set("topleft", topleft.x, topleft.y);
-            shader(mainShader);
-
-            noStroke();
-            fill(1);
-            rect(width/2, height/2,size,size);
-        }
-    }
+    /*
+     *
+     *       BLOCK
+     *
+     * */
 
     class Block{
         PVector pos;
         PVector size;
         int health;
-        int maxhealth;
+        int maxHealth;
         float deathFrame;
-        Block(PVector pos, PVector size){
+        float lastHitFrame;
+        Block(PVector pos, PVector size, int maxHealth){
+            this.health = maxHealth;
+            this.maxHealth = maxHealth;
             this.pos = pos;
             this.size = size;
+        }
+
+        public void onHit() {
+            health--;
+            lastHitFrame = (float) frameCount;
+            if(health <= 0){
+                deathFrame = frameCount;
+            }
+        }
+
+        public void update() {
+
         }
     }
 }

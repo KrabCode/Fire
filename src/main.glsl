@@ -1,6 +1,7 @@
 
 #define outer vec3(.1 , 1.0, 1.)
 #define inner vec3(.15,0.5, 1.)
+#define pi 3.14159
 
 uniform vec2 size;
 uniform vec2 topleft;
@@ -12,12 +13,21 @@ uniform float[98] blockPositionsY;
 uniform float[98] blockSizesX;
 uniform float[98] blockSizesY;
 uniform float[98] blockDeathframes;
+uniform float[98] blockHealths;
+uniform float[98] blockMaxHealths;
+uniform float[98] blockLastHits;
 
 uniform float[30] ballPositionsX;
 uniform float[30] ballPositionsY;
 uniform float[30] ballRs;
 
-uniform float smoothstepOffset = 0.01;
+uniform float [10] platformPositionsX;
+uniform float [10] platformPositionsY;
+uniform float [10] platformSizesX;
+uniform float [10] platformSizesY;
+uniform float [10] platformLastHits;
+
+uniform float smoothstepOffset = 0.005;
 
 
 vec3 hsb2rgb( in vec3 c){
@@ -45,22 +55,31 @@ vec3 rect(vec2 uv, vec2 c, vec2 s, vec2 off){
 void main(){
     vec2 uv = (gl_FragCoord.xy-topleft.xy) / size.xy;
     vec2 c = vec2(.5);
-    float d = distance(uv, c)*2.;
-    vec4 hsb = vec4(1.-uv.x*.2+time/20., 1., 0.2, 1.);
+    float d = distance(uv, c)*20.;
+    float t = time/80.;
+    vec4 hsb = vec4(1.-d*.02+t/20., 1., 0.1, 1.);
     for(int i = 0; i < 98; i++){
         if(blockDeathframes[i] > 0.) continue;
-        vec2 blockPos = vec2(blockPositionsX[i] / min(size.x, size.y), 1.-blockPositionsY[i] / size.y);
+        vec2 blockPos = vec2(blockPositionsX[i] / size.x, 1.-blockPositionsY[i] / size.y);
         vec2 blockSize = vec2(blockSizesX[i] / size.x/2., blockSizesY[i] / size.y/2.);
         vec3 rect = rect(uv, blockPos, blockSize, vec2(smoothstepOffset));
-        hsb.b += rect.r;
+        float hitAnimationFrame = (time-blockLastHits[i])/30.;
+        hsb.b += rect.r *(.5+(clamp(hitAnimationFrame, 0., 1.5)));
     }
-    for(int i = 0; i < 1; i++){
-
-        vec2 ballPos = vec2(ballPositionsX[i]/min(size.x, size.y)-ballRs[i]/2.,
-                            ballPositionsY[i]/min(size.x, size.y)+ballRs[i]/2.);
-        vec3 ellipse = ellipse(uv, ballPos, ballRs[i]);
-
-        hsb.z *= 1.+ellipse.r*10.;
+    for(int i = 0; i < 30; i++){
+        vec2 ballPos = vec2(ballPositionsX[i]/size.x, 1.-ballPositionsY[i]/size.y);
+        vec3 ellipse = ellipse(uv, ballPos, ballRs[i]/size.x/2.);
+        hsb.g -= clamp( ellipse.r, 0., hsb.g);
+        hsb.b += clamp( ellipse.r*2., 0., 1.-hsb.b);
+    }
+    for(int i = 0; i < 10; i++){
+        if(platformPositionsX[i] == 0.) continue;
+        vec2 platformPos = vec2(platformPositionsX[i]/min(size.x, size.y),
+                            1.-platformPositionsY[i]/min(size.x, size.y));
+        vec2 platformSize = vec2(platformSizesX[i], platformSizesY[i])/size;
+        vec3 platform = rect(uv, platformPos, platformSize/2., vec2(smoothstepOffset));
+        float hitAnimationFrame = (time-platformLastHits[i])/30.;
+        hsb.b += platform.r * (.5+(clamp(hitAnimationFrame, 0., 1.5)));
     }
     gl_FragColor = vec4(hsb2rgb(hsb.xyz), hsb.a);
 }
