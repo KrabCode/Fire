@@ -8,36 +8,36 @@ enum Collision {TOP, BOT, LEFT, RIGHT, NONE};
 
 public class MainApp extends PApplet{
 
-    Map m;
-    PShader mainShader;
-
-    float[] blockPositionsX;
-    float[] blockSizesX;
-    float[] blockPositionsY;
-    float[] blockSizesY;
-    float[] blockDeathframes;
-    float[] blockHealths;
-    float[] blockMaxHealths;
-    float[] blockLastHits;
-    float[] ballPositionsXs;
-    float[] ballPositionsYs;
-    float[] ballRs;
-    float[] platformPositionsX;
-    float[] platformPositionsY;
-    float[] platformSizesX;
-    float[] platformSizesY;
-    float[] platformLastHits;
-
-    ArrayList<Ball> balls = new ArrayList<>();
-    ArrayList<Ball> ballsToRemove = new ArrayList<>();
-    ArrayList<Block> blocks = new ArrayList<>();
-    ArrayList<Block> blocksToRemove = new ArrayList<>();
-    ArrayList<Platform> platforms = new ArrayList<>();
-    ArrayList<Platform> platformsToRemove = new ArrayList<>();
-
     public static void main(String[] args) {
         PApplet.main("MainApp");
     }
+
+    private Map m;
+    private PShader mainShader;
+
+    private float[] blockPositionsX;
+    private float[] blockSizesX;
+    private float[] blockPositionsY;
+    private float[] blockSizesY;
+    private float[] blockDeathframes;
+    private float[] blockHealths;
+    private float[] blockMaxHealths;
+    private float[] blockLastHits;
+    private float[] ballPositionsXs;
+    private float[] ballPositionsYs;
+    private float[] ballRs;
+    private float[] platformPositionsX;
+    private float[] platformPositionsY;
+    private float[] platformSizesX;
+    private float[] platformSizesY;
+    private float[] platformLastHits;
+
+    private ArrayList<Ball> balls = new ArrayList<Ball>();
+    private ArrayList<Ball> ballsToRemove = new ArrayList<Ball>();
+    private ArrayList<Block> blocks = new ArrayList<Block>();
+    private ArrayList<Block> blocksToRemove = new ArrayList<Block>();
+    private ArrayList<Platform> platforms = new ArrayList<Platform>();
+    private ArrayList<Platform> platformsToRemove = new ArrayList<Platform>();
 
     public void settings() {
         fullScreen(P2D);
@@ -56,7 +56,8 @@ public class MainApp extends PApplet{
         ellipseMode(CENTER);
         rectMode(CENTER);
         mainShader = loadShader("main.glsl");
-        float size = min(width, height);
+        mainShader.set("smoothstepOffset", .005f);
+        float size = height;
         m = new Map(size);
         generatePlatforms();
         generateBall();
@@ -233,7 +234,7 @@ public class MainApp extends PApplet{
         int stepsPerFrame;
         float dirNormalized;
         float lastHitFrame;
-        ArrayList<Ball> snappedToThis = new ArrayList<>();
+        ArrayList<Ball> snappedToThis = new ArrayList<Ball>();
         Platform(){
             pos = new PVector(m.size/2f, height-m.size/16f);
             size = new PVector(m.size/10f, m.size/60f);
@@ -243,30 +244,30 @@ public class MainApp extends PApplet{
 
         void update(){
             if(keyPressed || mousePressed){
-            for(int i = 0; i < stepsPerFrame; i++){
-                dirNormalized = 0;
+                if(snappedToThis.size() > 0){
+                    Ball b = snappedToThis.get(0);
+                    b.release();
+                    snappedToThis.remove(b);
+                }
+                for(int i = 0; i < stepsPerFrame; i++){
+                    dirNormalized = 0;
                     if(key == 'a' || (mousePressed && mouseX < m.center.x)){
                         dirNormalized = -1;
                     }
                     if(key == 'd' || (mousePressed && mouseX > m.center.x)){
                         dirNormalized = 1;
                     }
-                    if(key == ' '){
-                        if(snappedToThis.size() > 0){
-                            Ball b = snappedToThis.get(0);
-                            b.release();
-                            snappedToThis.remove(b);
-                        }
-                    }
+
                     pos.x += dirNormalized;
                 }
             }else{
+
                 dirNormalized = 0;
             }
             checkBoundsCollision();
         }
 
-        public void onHit() {
+        void onHit() {
             lastHitFrame = frameCount;
         }
 
@@ -289,7 +290,6 @@ public class MainApp extends PApplet{
     class Ball {
         PVector pos;
         PVector dirNormalized;
-        PVector maxSpd;
         int stepsPerFrame;
         float size;
         Platform snappedTo;
@@ -298,7 +298,6 @@ public class MainApp extends PApplet{
             stepsPerFrame = 5;
             size = m.size*.02f;
             pos = new PVector(m.center.x,height/8);
-            float maxSpd = 1.f-random(2f);
         }
 
         Ball(Platform snapToThis){
@@ -347,14 +346,12 @@ public class MainApp extends PApplet{
                     p.onHit();
                     if(dirNormalized.y > 0){
                         dirNormalized.y *= -1;
-                        dirNormalized.x += p.dirNormalized/4f;
+                        dirNormalized.y = min(dirNormalized.y, -0.5f);
+                        dirNormalized.x += p.dirNormalized/2f + random(-.2f,.2f);
 
                     }
                 }else if(colResult == Collision.BOT){
                     p.onHit();
-                    if(dirNormalized.y < 0){
-                       // stepsPerFrame.y *= -1; go straight through instead
-                    }
                 }
                 dirNormalized.limit(1.f);
             }

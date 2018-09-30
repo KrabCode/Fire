@@ -1,4 +1,6 @@
 
+precision lowp float;
+
 #define outer vec3(.1 , 1.0, 1.)
 #define inner vec3(.15,0.5, 1.)
 #define pi 3.14159
@@ -8,26 +10,26 @@ uniform vec2 topleft;
 uniform vec2 resolution;
 uniform float time;
 
-uniform float[98] blockPositionsX;
-uniform float[98] blockPositionsY;
-uniform float[98] blockSizesX;
-uniform float[98] blockSizesY;
-uniform float[98] blockDeathframes;
-uniform float[98] blockHealths;
-uniform float[98] blockMaxHealths;
-uniform float[98] blockLastHits;
+uniform float blockPositionsX    [98];
+uniform float blockPositionsY    [98];
+uniform float blockSizesX        [98];
+uniform float blockSizesY        [98];
+uniform float blockDeathframes   [98];
+uniform float blockHealths       [98];
+uniform float blockMaxHealths    [98];
+uniform float blockLastHits      [98];
 
-uniform float[30] ballPositionsX;
-uniform float[30] ballPositionsY;
-uniform float[30] ballRs;
+uniform float ballPositionsX     [30];
+uniform float ballPositionsY     [30];
+uniform float ballRs             [30];
 
-uniform float [10] platformPositionsX;
-uniform float [10] platformPositionsY;
-uniform float [10] platformSizesX;
-uniform float [10] platformSizesY;
-uniform float [10] platformLastHits;
+uniform float platformPositionsX [10];
+uniform float platformPositionsY [10];
+uniform float platformSizesX     [10];
+uniform float platformSizesY     [10];
+uniform float platformLastHits   [10];
 
-uniform float smoothstepOffset = 0.01;
+uniform float smoothstepOffset;
 
 
 vec3 hsb2rgb( in vec3 c){
@@ -52,10 +54,14 @@ vec3 rect(vec2 uv, vec2 c, vec2 s, vec2 off){
    return vec3(1.-max(p,q));
 }
 
+float maxrect(vec2 uv, vec2 c){
+	return max(abs(c.x-uv.x), abs(c.y-uv.y));
+}
+
 void main(){
     vec2 bguv = (gl_FragCoord.xy-topleft.xy) / size.xy;
     vec2 c = vec2(.5);
-    float d = distance(bguv, c)*20.;
+    float d = maxrect(bguv, c)*10+distance(bguv, c)*20.;
     float t = time/80.;
     vec2 uv = gl_FragCoord.xy / size.xy;
     vec4 hsb = vec4(d*.02-t/20., 1., 0.1, 1.);
