@@ -40,8 +40,8 @@ public class MainApp extends PApplet{
     }
 
     public void settings() {
-//        fullScreen(P2D);
-        size(1000, 1000, P2D);
+        fullScreen(P2D);
+//        size(1000, 1000, P2D);
     }
 
     /*
@@ -51,6 +51,7 @@ public class MainApp extends PApplet{
      * */
 
     public void setup() {
+        background(0);
         colorMode(HSB, 1,1,1,1);
         ellipseMode(CENTER);
         rectMode(CENTER);
@@ -83,11 +84,14 @@ public class MainApp extends PApplet{
         float yscl = 15f;
         for(float x = 1f; x <= xscl-1; x++){
             for(float y = 1; y <= yscl*.5; y++){
-                PVector pos = new PVector(m.topleft.x + x*m.size/xscl, m.topleft.y + y*m.size/yscl);
+                PVector pos = new PVector(m.topleft.x + x*m.size/yscl, m.topleft.y + y*m.size/yscl);
                 PVector size = new PVector(m.size/xscl*.7f, m.size/yscl*.7f);
                 blocks.add(new Block(pos, size, 2));
             }
         }
+        println(m.topleft);
+
+
         blockPositionsX =   new float[blocks.size()];
         blockSizesX     =   new float[blocks.size()];
         blockPositionsY =   new float[blocks.size()];

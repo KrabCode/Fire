@@ -53,11 +53,12 @@ vec3 rect(vec2 uv, vec2 c, vec2 s, vec2 off){
 }
 
 void main(){
-    vec2 uv = (gl_FragCoord.xy-topleft.xy) / size.xy;
+    vec2 bguv = (gl_FragCoord.xy-topleft.xy) / size.xy;
     vec2 c = vec2(.5);
-    float d = distance(uv, c)*20.;
+    float d = distance(bguv, c)*20.;
     float t = time/80.;
-    vec4 hsb = vec4(1.-d*.02+t/20., 1., 0.1, 1.);
+    vec2 uv = gl_FragCoord.xy / size.xy;
+    vec4 hsb = vec4(d*.02-t/20., 1., 0.1, 1.);
     for(int i = 0; i < 98; i++){
         if(blockDeathframes[i] > 0.) continue;
         vec2 blockPos = vec2(blockPositionsX[i] / size.x, 1.-blockPositionsY[i] / size.y);
