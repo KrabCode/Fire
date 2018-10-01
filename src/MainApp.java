@@ -14,6 +14,7 @@ public class MainApp extends PApplet{
 
     private Map m;
     private PShader mainShader;
+    int globalMaxHealth = 2;
 
     private float[] blockPositionsX;
     private float[] blockSizesX;
@@ -35,7 +36,6 @@ public class MainApp extends PApplet{
     private ArrayList<Ball> balls = new ArrayList<Ball>();
     private ArrayList<Ball> ballsToRemove = new ArrayList<Ball>();
     private ArrayList<Block> blocks = new ArrayList<Block>();
-    private ArrayList<Block> blocksToRemove = new ArrayList<Block>();
     private ArrayList<Platform> platforms = new ArrayList<Platform>();
     private ArrayList<Platform> platformsToRemove = new ArrayList<Platform>();
 
@@ -56,7 +56,7 @@ public class MainApp extends PApplet{
         ellipseMode(CENTER);
         rectMode(CENTER);
         mainShader = loadShader("main.glsl");
-        mainShader.set("smoothstepOffset", .005f);
+        mainShader.set("smoothstepOffset", .009f);
         float size = height;
         m = new Map(size);
         generatePlatforms();
@@ -83,16 +83,14 @@ public class MainApp extends PApplet{
     private void generateBlocks(){
         float xscl = 15f;
         float yscl = 15f;
-        for(float x = 1f; x <= xscl-1; x++){
-            for(float y = 1; y <= yscl*.5; y++){
-                PVector pos = new PVector(m.topleft.x + x*m.size/yscl, m.topleft.y + y*m.size/yscl);
-                PVector size = new PVector(m.size/xscl*.7f, m.size/yscl*.7f);
-                blocks.add(new Block(pos, size, 2));
+        for(float x = m.center.x-m.size/2+m.size/xscl; x < m.center.x+m.size/2; x+= m.size/xscl){
+            for(float y = m.center.y-m.size/2+m.size/yscl; y <= m.center.y ; y+= m.size/yscl){
+                PVector pos = new PVector(x, y);
+                PVector size = new PVector(m.size/xscl*.5f, m.size/yscl*.5f);
+                blocks.add(new Block(pos, size, globalMaxHealth));
             }
         }
-        println(m.topleft);
-
-
+        println(blocks.size());
         blockPositionsX =   new float[blocks.size()];
         blockSizesX     =   new float[blocks.size()];
         blockPositionsY =   new float[blocks.size()];
@@ -110,17 +108,23 @@ public class MainApp extends PApplet{
      * */
 
     public void draw() {
-        if(blocks.size()==0){
-            generateBlocks();
-        }
+
         for(Ball ball : balls){
             ball.update();
         }
         for(Platform p : platforms){
             p.update();
         }
+        boolean everyBlockCleared = true;
         for(Block b : blocks){
             b.update();
+            if(b.deathFrame == 0){
+                everyBlockCleared = false;
+                break;
+            }
+        }
+        if(everyBlockCleared){
+            generateBlocks();
         }
         sendBallsToShader();
         sendBlocksToShader();
@@ -138,19 +142,20 @@ public class MainApp extends PApplet{
     }
 
     private void sendBlocksToShader() {
-        blocks.removeAll(blocksToRemove);
-        blocksToRemove.clear();
         for(Block b : blocks){
             int i = blocks.indexOf(b);
+
             blockPositionsX[i] = b.pos.x;
             blockPositionsY[i] = b.pos.y;
             blockSizesX[i] = b.size.x;
             blockSizesY[i] = b.size.y;
+
             blockDeathframes[i] = b.deathFrame;
             blockHealths[i] = b.health;
             blockMaxHealths[i] = b.maxHealth;
             blockLastHits[i] = b.lastHitFrame;
         }
+
         mainShader.set("blockPositionsX", blockPositionsX);
         mainShader.set("blockSizesX", blockSizesX);
         mainShader.set("blockPositionsY", blockPositionsY);
@@ -238,7 +243,7 @@ public class MainApp extends PApplet{
         Platform(){
             pos = new PVector(m.size/2f, height-m.size/16f);
             size = new PVector(m.size/10f, m.size/60f);
-            stepsPerFrame = 5;
+            stepsPerFrame = 8;
             lastHitFrame = -5;
         }
 
@@ -249,17 +254,14 @@ public class MainApp extends PApplet{
                     b.release();
                     snappedToThis.remove(b);
                 }
-                for(int i = 0; i < stepsPerFrame; i++){
-                    dirNormalized = 0;
-                    if(key == 'a' || (mousePressed && mouseX < m.center.x)){
-                        dirNormalized = -1;
-                    }
-                    if(key == 'd' || (mousePressed && mouseX > m.center.x)){
-                        dirNormalized = 1;
-                    }
-
-                    pos.x += dirNormalized;
+                dirNormalized = 0;
+                if(key == 'a' || (mousePressed && mouseX < m.center.x)){
+                    dirNormalized = -1;
                 }
+                if(key == 'd' || (mousePressed && mouseX > m.center.x)){
+                    dirNormalized = 1;
+                }
+                pos.x += dirNormalized*stepsPerFrame;
             }else{
 
                 dirNormalized = 0;

@@ -1,5 +1,4 @@
 
-precision lowp float;
 
 #define outer vec3(.1 , 1.0, 1.)
 #define inner vec3(.15,0.5, 1.)
@@ -10,18 +9,19 @@ uniform vec2 topleft;
 uniform vec2 resolution;
 uniform float time;
 
-uniform float blockPositionsX    [98];
-uniform float blockPositionsY    [98];
-uniform float blockSizesX        [98];
-uniform float blockSizesY        [98];
-uniform float blockDeathframes   [98];
-uniform float blockHealths       [98];
-uniform float blockMaxHealths    [98];
-uniform float blockLastHits      [98];
 
-uniform float ballPositionsX     [30];
-uniform float ballPositionsY     [30];
-uniform float ballRs             [30];
+uniform float blockPositionsX    [100];
+uniform float blockPositionsY    [100];
+uniform float blockSizesX        [100];
+uniform float blockSizesY        [100];
+uniform float blockDeathframes   [100];
+uniform float blockHealths       [100];
+uniform float blockMaxHealths    [100];
+uniform float blockLastHits      [100];
+
+uniform float ballPositionsX     [10];
+uniform float ballPositionsY     [10];
+uniform float ballRs             [10];
 
 uniform float platformPositionsX [10];
 uniform float platformPositionsY [10];
@@ -65,8 +65,8 @@ void main(){
     float t = time/80.;
     vec2 uv = gl_FragCoord.xy / size.xy;
     vec4 hsb = vec4(d*.02-t/20., 1., 0.1, 1.);
-    for(int i = 0; i < 98; i++){
-        if(blockDeathframes[i] > 0.) continue;
+    for(int i = 0; i < 100; i++){
+        if(blockDeathframes[i] > 0. || blockPositionsX[i] == 0) continue;
         vec2 blockPos = vec2(blockPositionsX[i] / size.x, 1.-blockPositionsY[i] / size.y);
         vec2 blockSize = vec2(blockSizesX[i] / size.x/2., blockSizesY[i] / size.y/2.);
         vec3 rect = rect(uv, blockPos, blockSize, vec2(smoothstepOffset));
@@ -75,7 +75,7 @@ void main(){
         hsb.r += rect.r * (.1-healthIndicator/2.);
         hsb.b += rect.r * (.5+(clamp(hitAnimationFrame, 0., 1.5)));
     }
-    for(int i = 0; i < 30; i++){
+    for(int i = 0; i < 10; i++){
         vec2 ballPos = vec2(ballPositionsX[i]/size.x, 1.-ballPositionsY[i]/size.y);
         vec3 ellipse = ellipse(uv, ballPos, ballRs[i]/size.x/2.);
         hsb.g -= clamp( ellipse.r, 0., hsb.g);
